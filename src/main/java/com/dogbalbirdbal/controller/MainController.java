@@ -19,8 +19,8 @@ public class MainController {
 
 
     String url = "jdbc:postgresql://127.0.0.1:5432/wheretogo";
-    String user = "kimjuyoung"; // TODO 자신의 계졍명
-    String password1 = "rhdwn1004!"; //TODO 자신의 계졍 ID
+    String user = "account"; //
+    String password1 = "password"; //
 
     @GetMapping("myinfo/{id}/{password}")
     public HashMap<String, String> myInfoController(@PathVariable String id,
