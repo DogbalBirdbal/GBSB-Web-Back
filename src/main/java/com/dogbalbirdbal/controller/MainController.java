@@ -9,28 +9,91 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.Scanner;
 
 @RestController
 public class MainController {
 
 
-    @GetMapping("myinfo/{id}")
-    public HashMap<String, String> myInfoController(@PathVariable String id, Model model) {
+    String url = "jdbc:postgresql://127.0.0.1:5432/wheretogo";
+    String user = "kimjuyoung"; // TODO 자신의 계졍명
+    String password1 = "rhdwn1004!"; //TODO 자신의 계졍 ID
+
+    @GetMapping("myinfo/{id}/{password}")
+    public HashMap<String, String> myInfoController(@PathVariable String id,
+                                                    @PathVariable String password,Model model) {
         HashMap<String, String> stringStringHashMap = new HashMap<>();
-        stringStringHashMap.put("ID", id);
+        stringStringHashMap.put("Result", "fail");
+
+        try{
+            Connection connect = null;
+            connect = DriverManager.getConnection(url, user, password1);
+            String sql = "select name, id, email\n" +
+                    "from MyUser\n" +
+                    "where id = ? and password = ?";
+            PreparedStatement p = connect.prepareStatement(sql);
+            p.setString(1, id);
+            p.setString(2, password);
+
+            ResultSet resultSet = p.executeQuery();
+            boolean existData = false;
+
+            while ( resultSet.next() ) {
+                stringStringHashMap.put("name", resultSet.getString(1));
+                stringStringHashMap.put("id", resultSet.getString(2));
+                stringStringHashMap.put("email", resultSet.getString(3));
+                existData = true;
+            }
+
+            if ( existData ) {
+                stringStringHashMap.put("Result", "Success");
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
         return stringStringHashMap;
     }
 
-    @GetMapping("login/{id}")
-    public HashMap<String, String> loginController(@PathVariable String id, Model model) {
+    @GetMapping("login/{id}/{password}")
+    public HashMap<String, String> loginController(@PathVariable String id,
+                                                   @PathVariable String password, Model model) {
+
         HashMap<String, String> stringStringHashMap = new HashMap<>();
-        stringStringHashMap.put("ID", id);
+        stringStringHashMap.put("Result", "fail");
+
+        try{
+            Connection connect = null;
+            connect = DriverManager.getConnection(url, user, password1);
+            String sql = "select name, id\n" +
+                    "from MyUser\n" +
+                    "where id = ? and password = ?";
+            PreparedStatement p = connect.prepareStatement(sql);
+            p.setString(1, id);
+            p.setString(2, password);
+
+            ResultSet resultSet = p.executeQuery();
+
+            boolean existData = false;
+
+            while ( resultSet.next() ) {
+                stringStringHashMap.put("name", resultSet.getString(1));
+                stringStringHashMap.put("id", resultSet.getString(2));
+                existData = true;
+            }
+
+            if ( existData ) {
+                stringStringHashMap.put("Result", "Success");
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+
+
         return stringStringHashMap;
     }
 
@@ -41,9 +104,6 @@ public class MainController {
                                                       @PathVariable String email,
                                                       Model model) {
         HashMap<String, String> stringStringHashMap = new HashMap<>();
-        String url = "jdbc:postgresql://127.0.0.1:5432/wheretogo";
-        String user = "2";
-        String password1 = "1!"; //password 입력
         try{
             Connection connect = null;
             connect = DriverManager.getConnection(url, user, password1);
@@ -66,10 +126,6 @@ public class MainController {
         stringStringHashMap.put("ID", id);
         stringStringHashMap.put("password", password);
         stringStringHashMap.put("email", email);
-
-        //TODO DB 연동해서
-        //TODO  회원가입이 성공하면 어떤 페이지를 보여줌
-        //TODO 실패하면 실패하는 페이지를 보여줌 ( 실패 이유와 함께 )
 
         return stringStringHashMap;
     }
