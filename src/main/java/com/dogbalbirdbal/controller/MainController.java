@@ -2,6 +2,7 @@ package com.dogbalbirdbal.controller;
 
 
 import com.fasterxml.jackson.core.JsonParser;
+import org.jsoup.nodes.Element;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -13,6 +14,10 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 
 @RestController
 public class MainController {
@@ -135,5 +140,23 @@ public class MainController {
         return String.format("Main_Page");
     }
 
+    //crawling with url using jsoup
+    @GetMapping("crawling/{url}")
+    public String crawlingController(@PathVariable String url, Model model) {
+        String url1 = "https://finance.naver.com/item/main.naver?code=" + url;
+        Document doc = null;
+        try {
+            doc = Jsoup.connect(url1).get();
+            Elements e1 = doc.select("#middle > div.h_company > div.wrap_company > div > span.code");
+            Elements e2 = doc.select("#chart_area > div.rate_info > div > p.no_today > em");
+            String str = e2.text().split(" ")[0];
+            System.out.print("code: "+ e1.text());
+            System.out.println(", gageuk:" +  str);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
+
+        return String.format("Crawling_Page");
+    }
 }
