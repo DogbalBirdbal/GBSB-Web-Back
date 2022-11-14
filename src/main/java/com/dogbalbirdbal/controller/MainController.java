@@ -14,6 +14,10 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
+
 @RestController
 public class MainController {
 
@@ -135,5 +139,28 @@ public class MainController {
         return String.format("Main_Page");
     }
 
+    //crawling with url using jsoup
+    @GetMapping("crawling/{url}")
+        public String crawlingController(@PathVariable String url, Model model) {
+        String url1 = "https://www.siksinhot.com/search?keywords=" + url;
+        Document doc = null;
+        String result = "";
+        try {
+            doc = Jsoup.connect(url1).get();
+            Elements e1 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(1) > figcaption > a > h2");
+            Elements e2 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(2) > figcaption > a > h2");
+            Elements e3 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(3) > figcaption > a > h2");
 
+            System.out.println("1등 맛집: "+ e1.text());
+            System.out.println("2등 맛집: "+ e2.text());
+            System.out.println("3등 맛집: "+ e3.text());
+            result += "1등 맛집: " +e1.text() + "2등 맛집: " + e2.text() +"3등 맛집: "+ e3.text();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+        return String.format(result);
+    }
 }
