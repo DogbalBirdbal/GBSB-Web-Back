@@ -73,9 +73,9 @@ public class DataBaseServiceManager {
         try ( Connection connection = getConnection() ) {
             PreparedStatement preparedStatement = connection.prepareStatement(String.format("select * from MyUser where %s = ?", colType));
             preparedStatement.setString(1, colData);
-            ResultSet resultSet = preparedStatement.getResultSet();
+            ResultSet resultSet = preparedStatement.executeQuery();
             while (resultSet.next()) {
-                String id = resultSet.getString("id");
+                String id = resultSet.getString("uid");
                 String email = resultSet.getString("email");
                 String password = resultSet.getString("password");
                 String name = resultSet.getString("name");
@@ -95,7 +95,9 @@ public class DataBaseServiceManager {
         Connection connection = null;
         try {
             connection = getConnection();
+            connection.setAutoCommit(false);
             dbTransaction.task(connection);
+            connection.commit();
             connection.close();
             return true;
         } catch ( SQLException e ) {

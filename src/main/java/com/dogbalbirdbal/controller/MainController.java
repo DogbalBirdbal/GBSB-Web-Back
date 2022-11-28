@@ -15,6 +15,7 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.function.Consumer;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -31,31 +32,107 @@ public class MainController {
         dataBaseServiceManager = DataBaseServiceManager.getInstance();
     }
 
-    @GetMapping("myinfo/{id}")
-    public HashMap<String, String> myInfoController(@PathVariable String id, HttpServletRequest request, Model model) {
+    @GetMapping("myinfo")
+    public HashMap<String, String> myInfoController(HttpServletRequest request, Model model) {
 
         //
         HashMap<String, String> stringStringHashMap = new HashMap<>();
-        Object o = request.getSession().getAttribute(id);
+        Object o = request.getSession().getAttribute("login_data");//세션을 통한 데이터 유무 판별
         
         if ( o != null && o instanceof UserInfo userInfo ) {
-            // TODO 세션에 데이터가 있을경우 
-            stringStringHashMap.put("result", "Data있음");
+            // TODO 세션에 데이터가 있을경우
+
+            stringStringHashMap.put("result", "success");
             stringStringHashMap.put("data", userInfo.toString());
-        } else {
+
+            try {
+                Connection connection = dataBaseServiceManager.getConnection();
+                displayResult(connection, "select * from travelrecord where uid = ?"
+                        , (resultSet) -> {
+                            try{
+                                while (resultSet.next()) {
+                                    stringStringHashMap.put("user id", resultSet.getString(1));
+                                    stringStringHashMap.put("위도", resultSet.getString(2));
+                                    stringStringHashMap.put("경도", resultSet.getString(3));
+                                    stringStringHashMap.put("주소", resultSet.getString(4));
+                                    stringStringHashMap.put("image", resultSet.getString(5));
+                                    stringStringHashMap.put("placename", resultSet.getString(6));
+                                    stringStringHashMap.put("travel date", resultSet.getString(7));
+
+                                }
+                            } catch (SQLException e) {
+                                e.printStackTrace();
+                            }
+                        }, userInfo.getId());
+
+            } catch ( SQLException e ) {
+                e.printStackTrace();
+            }
+
+            try {
+                Connection connection = dataBaseServiceManager.getConnection();
+                displayResult(connection, "select * from wishlist where uid = ?"
+                        , (resultSet) -> {
+                            try{
+
+                                while (resultSet.next()) {
+                                    stringStringHashMap.put("user id", resultSet.getString(1));
+                                    stringStringHashMap.put("위도", resultSet.getString(2));
+                                    stringStringHashMap.put("경도", resultSet.getString(3));
+                                    stringStringHashMap.put("주소", resultSet.getString(4));
+                                    stringStringHashMap.put("image", resultSet.getString(5));
+                                    stringStringHashMap.put("placename", resultSet.getString(6));
+                                }
+                            } catch (SQLException e) {
+                                e.printStackTrace();
+                            }
+                        }, userInfo.getId());
+
+            } catch ( SQLException e ) {
+                e.printStackTrace();
+            }
+
+        }
+        else {
             // TODO 세션에 데이터가 없을경우
-            stringStringHashMap.put("Result", "세션에 데이터가 없음");
+            stringStringHashMap.put("Result", "you`re not in our page");
         }
         
         return stringStringHashMap;
     }
 
+    private static void displayResult(Connection conn, String query, Consumer<ResultSet> resultSetConsumer, String... queryValue) {
+
+        try{
+            Connection con = conn;
+            PreparedStatement pre = con.prepareStatement(query);
+            if (queryValue != null) {
+                int count = 1;
+                for (String v : queryValue) {
+                    pre.setString(count, v);
+                    count++;
+                }
+            }
+            ResultSet rs = pre.executeQuery();
+            resultSetConsumer.accept(rs);
+            conn.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            try {
+                conn.close();
+            } catch ( SQLException e1 ) {
+                e1.printStackTrace();
+            }
+        }
+
+    }
+
     @GetMapping("login/{id}/{password}")
-    public HashMap<String, String> loginController(@PathVariable String id, @PathVariable String password) {
+    public HashMap<String, String> loginController(@PathVariable String id, @PathVariable String password, HttpServletRequest request) {
 
         HashMap<String, String> stringStringHashMap = new HashMap<>();
         
-        UserInfo userInfo = dataBaseServiceManager.getUserInfo("id",id);
+        UserInfo userInfo = dataBaseServiceManager.getUserInfo("uid",id);
         
         if ( userInfo != null ) {
             String resultID = userInfo.getId();
@@ -63,19 +140,21 @@ public class MainController {
             if ( resultID.equalsIgnoreCase(id) ) {
                 if (resultPassword.equalsIgnoreCase(password)) {
                     // TODO 로그인 성공 데이터
-                    stringStringHashMap.put("Result", "로그인 성공!");
+                    request.getSession().setAttribute("login_data", userInfo);
+                    stringStringHashMap.put("Result", "login success!");
                     stringStringHashMap.put("data", userInfo.toString());
+                    System.out.println(request.getLocalAddr() + " << SERVER INFO [LOGIN]");
                 } else {
                     // TODO 로그인 실패
-                    stringStringHashMap.put("Result", "비밀번호 다름");
+                    stringStringHashMap.put("Result", "invalid password");
                 }
             } else {
                 //TODO 로그인 실패
-                stringStringHashMap.put("Result", "로그인 실패 ID 불일치");
+                stringStringHashMap.put("Result", "login fail ID not match");
             }
         } else {
             // TODO 데이터 없음
-            stringStringHashMap.put("Result", "로그인 실패 ID에 따른 데이터 없음!");
+            stringStringHashMap.put("Result", "you`re not in our page!");
         }
 
         return stringStringHashMap;
@@ -85,34 +164,51 @@ public class MainController {
     public HashMap<String, String> registerController(@PathVariable String name,
                                                       @PathVariable String id,
                                                       @PathVariable String password,
-                                                      @PathVariable String email) {
+                                                      @PathVariable String email) throws SQLException {
         HashMap<String, String> stringStringHashMap = new HashMap<>();
 
+        UserInfo nameUserInfo = dataBaseServiceManager.getUserInfo("name", name);
+        UserInfo idUserInfo = dataBaseServiceManager.getUserInfo("uid", id);
         UserInfo emailUserInfo = dataBaseServiceManager.getUserInfo("email" , email);
-        
-        if ( emailUserInfo != null ) {
-            stringStringHashMap.put("Result", "이메일 중복");
+
+        if ( nameUserInfo != null &&  idUserInfo != null && emailUserInfo != null) {
+            stringStringHashMap.put("Result", "you`re already existed.");
             return stringStringHashMap;
         }
-        
-        UserInfo idUserInfo = dataBaseServiceManager.getUserInfo("id", id);
+
         if ( idUserInfo != null ) {
-            stringStringHashMap.put("Result", "ID 중복");
+            stringStringHashMap.put("Result", "ID is existed");
+            return stringStringHashMap;
+        }
+
+        if ( emailUserInfo != null ) {
+            stringStringHashMap.put("Result", "email is existed");
             return stringStringHashMap;
         }
 
         boolean success = dataBaseServiceManager.taskTransaction( connection -> {
-            String sql = "insert into MyUser(name, id, password, email) values(?, ?, ?, ?)";
-            PreparedStatement p = connection.prepareStatement(sql);
-            p.setString(1, name);
-            p.setString(2, id);
-            p.setString(3, password);
-            p.setString(4, email);
-            p.executeUpdate();
+            String sql1 = "insert into MyUser(name, uid, password, email) values(?, ?, ?, ?)";
+            PreparedStatement p1 = connection.prepareStatement(sql1);
+            p1.setString(1, name);
+            p1.setString(2, id);
+            p1.setString(3, password);
+            p1.setString(4, email);
+            p1.executeUpdate();
+
+            String sql2 = "insert into wishlist(uid) values(?)";
+            PreparedStatement p2 = connection.prepareStatement(sql2);
+            p2.setString(1, id);
+            p2.executeUpdate();
+
+            String sql3 = "insert into travelrecord(uid) values(?)";
+            PreparedStatement p3 = connection.prepareStatement(sql3);
+            p3.setString(1, id);
+            p3.executeUpdate();
+
         });
 
         if ( success ) {
-            stringStringHashMap.put("Result", "가입성공");
+            stringStringHashMap.put("Result", "register success");
         } else {
             stringStringHashMap.put("Result", "SQL Exception");
         }
@@ -124,6 +220,12 @@ public class MainController {
     public String mainPage(Model model) {
         return String.format("Main_Page");
     }
+
+    @GetMapping("/select/place")
+    public String selectplacePage(Model model) {
+        return String.format("Select Place_Page");
+    }
+
 
     //crawling with url using jsoup
     @GetMapping("crawling/{url}")
