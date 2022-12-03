@@ -16,7 +16,9 @@ import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import java.util.ArrayList;
 
 @RestController
 public class MainController {
@@ -139,28 +141,75 @@ public class MainController {
         return String.format("Main_Page");
     }
 
-    //crawling with url using jsoup
-    @GetMapping("crawling/{url}")
-        public String crawlingController(@PathVariable String url, Model model) {
-        String url1 = "https://www.siksinhot.com/search?keywords=" + url;
-        Document doc = null;
-        String result = "";
+    //give location name to input{location}
+    @GetMapping("crawlingfood/{location}")
+    public String crawlingController(@PathVariable String location, Model model) {
+
+        ArrayList<CrawlingData> foods = new ArrayList<>();
+        ArrayList<String> StringName = new ArrayList<>();
+        ArrayList<String> PicURL = new ArrayList<>();
+        String result;
+        String fullurl = "https://www.siksinhot.com/search?keywords=" + location;
         try {
-            doc = Jsoup.connect(url1).get();
-            Elements e1 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(1) > figcaption > a > h2");
-            Elements e2 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(2) > figcaption > a > h2");
-            Elements e3 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(3) > figcaption > a > h2");
+            Document doc = Jsoup.connect(fullurl).get();
+            Elements text_contents = doc.select("section ul.localFood_list li a h2 ");
+            Elements image_contents = doc.select("ul.localFood_list li a img");
 
-            System.out.println("1등 맛집: "+ e1.text());
-            System.out.println("2등 맛집: "+ e2.text());
-            System.out.println("3등 맛집: "+ e3.text());
-            result += "1등 맛집: " +e1.text() + "2등 맛집: " + e2.text() +"3등 맛집: "+ e3.text();
-
+            for(Element f : text_contents)  StringName.add(f.text());
+            for(Element p : image_contents) PicURL.add(p.attr("src"));
+            for(int a=0; a < 10; a++)
+            {
+                CrawlingData food = new CrawlingData(StringName.get(a), PicURL.get(a));
+                foods.add(food);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-
+        result = foods.toString(); // All data of crwaling
+        System.out.println(GetRandomSource(foods)); // 1 data from crawling with Random Function
         return String.format(result);
     }
+
+
+    public CrawlingData GetRandomSource(ArrayList<CrawlingData> list){
+        int a, flag = 0;
+        int[] WeightValueArray = {50, 30, 20, 10, 8, 6, 4, 3, 2, 1 };
+        for(a=0; a<10; a++){
+            WeightValueArray[a] += (Math.random()*10 + 1);
+        }
+        while(true){
+            for(a= 0; a< list.size(); a++) {
+                flag += WeightValueArray[a];
+                if(flag > 1000)
+                {
+                    return list.get(a);
+                }
+            }
+        }
+    }
 }
+
+class CrawlingData {
+    private final String name;
+    private final String pic_url;
+
+    CrawlingData(String name, String pic_url){
+        this.name = name;
+        this.pic_url = pic_url;
+    }
+
+    public String getName(){
+        return this.name;
+    }
+
+    public String getPic_url(){
+        return this.pic_url;
+    }
+
+    public String toString(){
+        return "NAME : " + this.name + ", URL : " + this.pic_url;
+    }
+}
+
+
