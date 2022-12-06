@@ -23,154 +23,71 @@ import java.util.ArrayList;
 @RestController
 public class MainController {
 
-
-    String url = "jdbc:postgresql://127.0.0.1:5432/wheretogo";
-    String user = "account"; //
-    String password1 = "password"; //
-
-    @GetMapping("myinfo/{id}/{password}")
-    public HashMap<String, String> myInfoController(@PathVariable String id,
-                                                    @PathVariable String password,Model model) {
-        HashMap<String, String> stringStringHashMap = new HashMap<>();
-        stringStringHashMap.put("Result", "fail");
-
-        try{
-            Connection connect = null;
-            connect = DriverManager.getConnection(url, user, password1);
-            String sql = "select name, id, email\n" +
-                    "from MyUser\n" +
-                    "where id = ? and password = ?";
-            PreparedStatement p = connect.prepareStatement(sql);
-            p.setString(1, id);
-            p.setString(2, password);
-
-            ResultSet resultSet = p.executeQuery();
-            boolean existData = false;
-
-            while ( resultSet.next() ) {
-                stringStringHashMap.put("name", resultSet.getString(1));
-                stringStringHashMap.put("id", resultSet.getString(2));
-                stringStringHashMap.put("email", resultSet.getString(3));
-                existData = true;
-            }
-
-            if ( existData ) {
-                stringStringHashMap.put("Result", "Success");
-            }
-
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-        return stringStringHashMap;
-    }
-
-    @GetMapping("login/{id}/{password}")
-    public HashMap<String, String> loginController(@PathVariable String id,
-                                                   @PathVariable String password, Model model) {
-
-        HashMap<String, String> stringStringHashMap = new HashMap<>();
-        stringStringHashMap.put("Result", "fail");
-
-        try{
-            Connection connect = null;
-            connect = DriverManager.getConnection(url, user, password1);
-            String sql = "select name, id\n" +
-                    "from MyUser\n" +
-                    "where id = ? and password = ?";
-            PreparedStatement p = connect.prepareStatement(sql);
-            p.setString(1, id);
-            p.setString(2, password);
-
-            ResultSet resultSet = p.executeQuery();
-
-            boolean existData = false;
-
-            while ( resultSet.next() ) {
-                stringStringHashMap.put("name", resultSet.getString(1));
-                stringStringHashMap.put("id", resultSet.getString(2));
-                existData = true;
-            }
-
-            if ( existData ) {
-                stringStringHashMap.put("Result", "Success");
-            }
-
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-
-
-        return stringStringHashMap;
-    }
-
-    @GetMapping("register/{name}/{id}/{password}/{email}")
-    public HashMap<String, String> registerController(@PathVariable String name,
-                                                      @PathVariable String id,
-                                                      @PathVariable String password,
-                                                      @PathVariable String email,
-                                                      Model model) {
-        HashMap<String, String> stringStringHashMap = new HashMap<>();
-        try{
-            Connection connect = null;
-            connect = DriverManager.getConnection(url, user, password1);
-            String sql = "insert into MyUser(name, id, password, email) values(?, ?, ?, ?)";
-            PreparedStatement p = connect.prepareStatement(sql);
-            p.setString(1, name);
-            p.setString(2, id);
-            p.setString(3, password);
-            p.setString(4, email);
-            p.executeUpdate();
-
-            stringStringHashMap.put("Result", "Success");
-
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            stringStringHashMap.put("Result", "fail");
-        }
-
-        stringStringHashMap.put("name", name);
-        stringStringHashMap.put("ID", id);
-        stringStringHashMap.put("password", password);
-        stringStringHashMap.put("email", email);
-
-        return stringStringHashMap;
-    }
-
-    @GetMapping("/")
-    public String mainPage(Model model) {
-        return String.format("Main_Page");
-    }
-
-    //give location name to input{location}
-    @GetMapping("crawlingfood/{location}")
+ @GetMapping("crawlingfood/{location}")
     public String crawlingController(@PathVariable String location, Model model) {
-
         ArrayList<CrawlingData> foods = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
         String result;
-        String fullurl = "https://www.siksinhot.com/search?keywords=" + location;
-        try {
-            Document doc = Jsoup.connect(fullurl).get();
-            Elements text_contents = doc.select("section ul.localFood_list li a h2 ");
-            Elements image_contents = doc.select("ul.localFood_list li a img");
+        String fullURL = "https://www.siksinhot.com/search?keywords=" + location;
+            try {
+                Document doc = Jsoup.connect(fullURL).get();
+                Elements text_contents = doc.select("section ul.localFood_list li a h2 ");
+                Elements image_contents = doc.select("ul.localFood_list li a img");
+                for(Element f : text_contents){
+                    StringName.add(f.text());
+               }
+                for(Element p : image_contents){
+                    PicURL.add(p.attr("src"));
+                }
+                for(int a=0; a < 10; a++)
+                {
+                    CrawlingData food = new CrawlingData(StringName.get(a), PicURL.get(a));
+                    foods.add(food);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
 
-            for(Element f : text_contents)  StringName.add(f.text());
-            for(Element p : image_contents) PicURL.add(p.attr("src"));
-            for(int a=0; a < 10; a++)
-            {
-                CrawlingData food = new CrawlingData(StringName.get(a), PicURL.get(a));
-                foods.add(food);
+        result = foods.toString();
+        System.out.println(GetRandomSource(foods));
+        return String.format(result);
+    }
+
+    @GetMapping("crawlinghotel/{data}")
+    public String crawlingController2(@PathVariable String data, Model model) {
+        //장소_2022-12-09_2022-12-10 방식으로 data 작성
+        ArrayList<CrawlingData> Hotels = new ArrayList<>();
+        ArrayList<String> StringName = new ArrayList<>();
+        ArrayList<String> PicURL = new ArrayList<>();
+        String result;
+        String[] urlSplit = data.split("_");
+
+        String fullURL = "https://www.goodchoice.kr/product/result?sel_date=" + urlSplit[1] +"&sel_date2=" + urlSplit[2] +"&keyword=" + urlSplit[0];
+        try {
+            Document doc = Jsoup.connect(fullURL).timeout(0).get();
+            Elements text_contents = doc.select("div.name strong");
+            Elements image_contents = doc.select("p[class=pic] img");
+
+            for(Element t : text_contents){
+                StringName.add(t.text());
+            }
+
+            for(Element i : image_contents){
+                PicURL.add("https:" + i.attr("data-original"));
+            }
+
+            for(int a=0; a<10; a++) {
+                CrawlingData hotel = new CrawlingData(StringName.get(a), PicURL.get(a));
+                Hotels.add(hotel);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        result = foods.toString(); // All data of crwaling
-        System.out.println(GetRandomSource(foods)); // 1 data from crawling with Random Function
-        return String.format(result);
+        result = Hotels.toString();
+        System.out.println(GetRandomSource(Hotels));
+        return result;
     }
-
 
     public CrawlingData GetRandomSource(ArrayList<CrawlingData> list){
         int a, flag = 0;
@@ -211,5 +128,3 @@ class CrawlingData {
         return "NAME : " + this.name + ", URL : " + this.pic_url;
     }
 }
-
-
