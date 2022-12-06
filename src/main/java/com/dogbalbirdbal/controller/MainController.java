@@ -23,31 +23,33 @@ import java.util.ArrayList;
 @RestController
 public class MainController {
 
- @GetMapping("crawlingfood/{location}")
+     @GetMapping("crawlingfood/{location}")
     public String crawlingController(@PathVariable String location, Model model) {
         ArrayList<CrawlingData> foods = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
         String result;
         String fullURL = "https://www.siksinhot.com/search?keywords=" + location;
-            try {
-                Document doc = Jsoup.connect(fullURL).get();
-                Elements text_contents = doc.select("section ul.localFood_list li a h2 ");
-                Elements image_contents = doc.select("ul.localFood_list li a img");
-                for(Element f : text_contents){
-                    StringName.add(f.text());
-               }
-                for(Element p : image_contents){
-                    PicURL.add(p.attr("src"));
-                }
-                for(int a=0; a < 10; a++)
-                {
+        try {
+            Document doc = Jsoup.connect(fullURL).get();
+            Elements contents = doc.select("ul.localFood_list li a img:nth-child(1)");
+
+            for(Element t : contents){
+                String temp = t.attr("alt");
+                String[] temp2 = temp.split(" ");
+                StringName.add(temp2[0]);
+
+                PicURL.add(t.attr("src"));
+            }
+
+            for(int a=0; a<10; a++){
                     CrawlingData food = new CrawlingData(StringName.get(a), PicURL.get(a));
                     foods.add(food);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         result = foods.toString();
         System.out.println(GetRandomSource(foods));
@@ -60,6 +62,8 @@ public class MainController {
         ArrayList<CrawlingData> Hotels = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
+        ArrayList<String> latitudes = new ArrayList<>();
+        ArrayList<String> longitudes = new ArrayList<>();
         String result;
         String[] urlSplit = data.split("_");
 
@@ -68,17 +72,27 @@ public class MainController {
             Document doc = Jsoup.connect(fullURL).timeout(0).get();
             Elements text_contents = doc.select("div.name strong");
             Elements image_contents = doc.select("p[class=pic] img");
+            Elements location_contents = doc.select("div[id=poduct_list_area] ul a");
 
             for(Element t : text_contents){
-                StringName.add(t.text());
+                String temp = t.text();
+                if(temp.contains("★당일특가★")){
+                    temp = temp.replace("★당일특가★", "");
+                }
+                StringName.add(temp);
             }
 
             for(Element i : image_contents){
                 PicURL.add("https:" + i.attr("data-original"));
             }
 
+            for(Element k : location_contents){
+                latitudes.add(k.attr("data-alat"));
+                longitudes.add(k.attr("data-alng"));
+            }
+
             for(int a=0; a<10; a++) {
-                CrawlingData hotel = new CrawlingData(StringName.get(a), PicURL.get(a));
+                CrawlingData hotel = new CrawlingHotel(StringName.get(a), PicURL.get(a), latitudes.get(a), longitudes.get(a));
                 Hotels.add(hotel);
             }
         } catch (Exception e) {
@@ -115,16 +129,23 @@ class CrawlingData {
         this.name = name;
         this.pic_url = pic_url;
     }
-
-    public String getName(){
-        return this.name;
-    }
-
-    public String getPic_url(){
-        return this.pic_url;
-    }
-
     public String toString(){
         return "NAME : " + this.name + ", URL : " + this.pic_url;
+    }
+}
+
+class CrawlingHotel extends CrawlingData{
+    private final String latitudes;
+    private final String longitudes;
+
+    CrawlingHotel(String name, String pic_url, String latitudes, String longitudes)
+    {
+        super(name, pic_url);
+        this.latitudes = latitudes;
+        this.longitudes = longitudes;
+
+    }
+    public String toString(){
+        return super.toString() + ", LATITUDES : " + this.latitudes + ", LONGITUDES : " + this.longitudes;
     }
 }
