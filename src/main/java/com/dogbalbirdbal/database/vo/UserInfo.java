@@ -1,16 +1,19 @@
 package com.dogbalbirdbal.database.vo;
 
+import jdk.jfr.DataAmount;
+import lombok.Data;
+
 import java.util.Objects;
+
+
 
 public class UserInfo {
 
-    String id;
-    String password;
-    String email;
-    String name;
+    private String id;
+    private String password;
+    private String email;
+    private String name;
 
-    public UserInfo() {
-    }
 
     public UserInfo(String id, String password, String email, String name) {
         this.id = id;
@@ -18,6 +21,7 @@ public class UserInfo {
         this.email = email;
         this.name = name;
     }
+
 
     @Override
     public String toString() {
@@ -50,7 +54,7 @@ public class UserInfo {
         this.id = id;
     }
 
-    public String getPassword() {
+    public  String getPassword() {
         return password;
     }
 
@@ -58,7 +62,7 @@ public class UserInfo {
         this.password = password;
     }
 
-    public String getEmail() {
+    public  String getEmail() {
         return email;
     }
 
@@ -66,7 +70,7 @@ public class UserInfo {
         this.email = email;
     }
 
-    public String getName() {
+    public  String getName() {
         return name;
     }
 
