@@ -22,7 +22,70 @@ import java.util.ArrayList;
 
 @RestController
 public class MainController {
+
+    String url = "jdbc:postgresql://localhost:5432/GBSB_JUN";
+    String user = "postgres"; //
+    String password1 = null; // have to set
     
+    @PostMapping("api/login/")
+    public String login(@RequestBody UserInfo userInfo)
+    {
+        HashMap<String, String> stringStringHashMap = new HashMap<>();
+        stringStringHashMap.put("Result", "fail");
+
+        try{
+            Connection connect = DriverManager.getConnection(url, user, password1);
+            String sql = "select uid, name\n" +
+                    "from MyUser\n" +                   // table 선택
+                    "where uid = ? and password = ?";   // 조건문 uid랑 password 입력받은 값이 일치하는지
+            PreparedStatement p = connect.prepareStatement(sql); // 질의문을 작성할 것을 만든다.
+            p.setString(1, userInfo.getId());       // 이게 첫번째 물음표로 이동한다.
+            p.setString(2, userInfo.getPassword()); // 이게 두번째 물음표로 이동한다.
+
+            ResultSet resultSet = p.executeQuery();             // 질의문을 실행한다.
+
+            boolean existData = false;
+
+            while ( resultSet.next() ) {
+                stringStringHashMap.put("id", resultSet.getString(1));
+                stringStringHashMap.put("name", resultSet.getString(2));
+                existData = true;
+            }
+
+            if ( existData ) {
+                stringStringHashMap.put("Result", "Success");
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        return "id : " + userInfo.getId() + ", password " + userInfo.getPassword();
+    }
+
+
+    @PostMapping("api/signup/")
+    public String signup(@RequestBody UserInfo userInfo){
+
+        try{
+            Connection connect = DriverManager.getConnection(url, user, password1);
+            String sql = "insert into MyUser(uid, name, password, email) values(?, ?, ?, ?)";
+            PreparedStatement p = connect.prepareStatement(sql);
+            p.setString(1, userInfo.getId());
+            p.setString(2, userInfo.getName());
+            p.setString(3, userInfo.getPassword());
+            p.setString(4, userInfo.getEmail());
+            p.executeUpdate();
+
+            System.out.println("ID: " + userInfo.getId() + " NAME: " + userInfo.getName() + "PW: " + userInfo.getPassword() + "EMAIL: " + userInfo.getEmail());
+            return "id : " + userInfo.getId() + ", name : " + userInfo.getName() + ", email : " + userInfo.getEmail() + ", password " + userInfo.getPassword();
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            System.out.println("ID 중복");
+        }
+        return null; // 이 return value를 front에서 받았을 때, 다른 메세지를 출력할 수 있도록 진행해야함. ex) 이미 사용중인 아이디입니다.
+    }
+
+
     @GetMapping("/api/crawlingfood/{location}")
     public String crawlingController(@PathVariable("location") String location) {
         ArrayList<CrawlingData> foods = new ArrayList<>();
