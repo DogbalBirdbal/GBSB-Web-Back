@@ -25,7 +25,8 @@ public class MainController {
 
     String url = "jdbc:postgresql://localhost:5432/GBSB_JUN";
     String user = "postgres"; //
-    String password1 = null; // have to set
+    String password1 = null; // have to set pwd
+    static int count = 0; // variable for choice path
     
     @PostMapping("api/login/")
     public String login(@RequestBody UserInfo userInfo)
@@ -160,6 +161,47 @@ public class MainController {
         }
         // String result = Hotels.toString(); 크롤링 된 호텔 목록
         return String.format(GetRandomSource(Hotels).toString());
+    }
+
+    @GetMapping("api/choicepath/{destination}")
+    public String choicepathController(@PathVariable("destination") String destination) {
+        // 입력 예시는 "부산 힐링", "부산 식도락", "부산 오락".
+        String result = "";
+
+        if(destination == null)  return "empty input";
+        String[] urlSplit = destination.split(" ");
+        if(urlSplit.length != 2) return "error";
+
+        ArrayList<String>[][] FoodLocation = new ArrayList[3][];
+        //  FoodLocation[n][0] = 힐링, FoodLocation[n][1] = 식도락, FoodLocation[n][2] = 예술
+        FoodLocation[0] = new ArrayList[3]; // 부산
+        FoodLocation[0][0] = new ArrayList<>(Arrays.asList("감천문화마을", "씨라이프부산아쿠아리움", "송도해상케이블카", "동백섬", "범어사", "이기대수변공원"));
+        FoodLocation[0][1] = new ArrayList<>(Arrays.asList("자갈치시장", "부전시장", "부평깡통시장", "부산밀락회센터", "부산구포시장", "부사영도포장마차거리"));
+        FoodLocation[0][2] = new ArrayList<>(Arrays.asList("부산뮤지엄원", "부산영화체험박물관", "부산커피박물관", "광복로문화패션거리", "트릭아이뮤지엄부산", "부산영화의전당"));
+
+        if(urlSplit[0].equals("부산")){
+            switch (urlSplit[1]) {
+                case "힐링":
+                    result = FoodLocation[0][0].get(count++ % 6);
+                    break;
+                case "식도락":
+                    result = FoodLocation[0][1].get(count++ % 6);
+                    break;
+                case "예술":
+                    result = FoodLocation[0][2].get(count++ % 6);
+                    break;
+            }
+        } else if(urlSplit[0].equals("서울")){
+            switch (urlSplit[1]) {
+                case "힐링":
+                    break;
+                case "식도락":
+                    break;
+                case "예술":
+                    break;
+            }
+        }
+        return result;
     }
 
     public CrawlingData GetRandomSource(ArrayList<CrawlingData> list) {
