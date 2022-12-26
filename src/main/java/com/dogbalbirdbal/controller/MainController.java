@@ -97,15 +97,15 @@ public class MainController {
             Document doc = Jsoup.connect(fullURL).get();
             Elements contents = doc.select("ul.localFood_list li a img:nth-child(1)");
 
+            int temp3 = 0;
             for (Element t : contents) {
                 String temp = t.attr("alt");
                 String[] temp2 = temp.split(" ");
                 StringName.add(temp2[0]);
-
                 PicURL.add(t.attr("src"));
             }
 
-            for (int a = 0; a < 10; a++) {
+            for (int a = 0; a < 14; a++) {
                 CrawlingData food = new CrawlingData(StringName.get(a), PicURL.get(a));
                 foods.add(food);
             }
@@ -113,9 +113,15 @@ public class MainController {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        // String result = foods.toString(); 크롤링 된 음식점 목록들
-        return String.format(GetRandomSource(foods).toString());
+        //System.out.println(foods.toString());
+        //System.out.println(foods.get(count++ % foods.size()));
+        String result = "";
+        for(int a=0; a<3; a++){
+            int random = (int) (Math.random() * 14);
+            if(result.contains(foods.get(random).toString())) a--;
+            else result += foods.get(random).toString() + " ";
+        }
+        return result;
     }
 
     @GetMapping("/api/crawlinghotel/{data}")
@@ -137,9 +143,13 @@ public class MainController {
 
             for (Element t : text_contents) {
                 String temp = t.text();
-                if (temp.contains("★당일특가★")) {
-                    temp = temp.replace("★당일특가★", "");
-                }
+                if(temp.contains("특급")) temp = temp.replace("특급", "");
+                if(temp.contains("가족호텔")) temp = temp.replace("가족호텔", "");
+                if(temp.contains("비지니스")) temp = temp.replace("비지니스","");
+                if (temp.contains("★당일특가★")) temp = temp.replace("★당일특가★", "");
+                if (temp.contains("[반짝특가]")) temp = temp.replace("[반짝특가]", "");
+                if(temp.contains("[특가]")) temp = temp.replace("[특가]", "");
+
                 StringName.add(temp);
             }
 
@@ -159,8 +169,9 @@ public class MainController {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        // String result = Hotels.toString(); 크롤링 된 호텔 목록
-        return String.format(GetRandomSource(Hotels).toString());
+        //System.out.println(Hotels.toString());
+        //System.out.println(Hotels.get(count++ % Hotels.size()).toString());
+        return Hotels.get(count++ % Hotels.size()).toString();
     }
 
     @GetMapping("api/choicepath/{destination}")
@@ -204,21 +215,6 @@ public class MainController {
         return result;
     }
 
-    public CrawlingData GetRandomSource(ArrayList<CrawlingData> list) {
-        int a, flag = 0;
-        int[] WeightValueArray = {50, 30, 20, 10, 8, 6, 4, 3, 2, 1};
-        for (a = 0; a < 10; a++) {
-            WeightValueArray[a] += (Math.random() * 10 + 1);
-        }
-        while (true) {
-            for (a = 0; a < list.size(); a++) {
-                flag += WeightValueArray[a];
-                if (flag > 1000) {
-                    return list.get(a);
-                }
-            }
-        }
-    }
 }
 
 class CrawlingData {
