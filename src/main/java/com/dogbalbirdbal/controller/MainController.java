@@ -91,12 +91,13 @@ public class MainController {
                 + ", image " + placeInfo.getImage() + ", placename " + placeInfo.getPlacename();
     }
 
+
     @PostMapping("api/login/")
-    public String login(@RequestBody UserInfo userInfo)
+    public HashMap<String, String> login(@RequestBody UserInfo userInfo)
     {
         HashMap<String, String> stringStringHashMap = new HashMap<>();
         stringStringHashMap.put("Result", "fail");
-
+        int count = 1;
         try{
             Connection connect = null;
             connect = DriverManager.getConnection(url, user, password1);
@@ -112,18 +113,18 @@ public class MainController {
             boolean existData = false;
 
             while ( resultSet.next() ) {
-                stringStringHashMap.put("id", resultSet.getString(1));
-                stringStringHashMap.put("name", resultSet.getString(2));
+                count++;
                 existData = true;
             }
 
             if ( existData ) {
                 stringStringHashMap.put("Result", "Success");
             }
+
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
-        return "id : " + userInfo.getId() + ", password " + userInfo.getPassword();
+        return stringStringHashMap;
     }
 
 
@@ -152,18 +153,13 @@ public class MainController {
 
 
     //이메일 인증
-    @GetMapping("/mailCheck")
-    @ResponseBody
-    public String mailCheck(String email) {
-        System.out.println("이메일 인증 요청이 들어옴!");
-        System.out.println("이메일 인증 이메일 : " + email);
-        return email;
-    }
+//    @GetMapping("/mailCheck")
+//    @ResponseBody
+//    public String mailCheck(String email) {
+//        System.out.println("이메일 인증 요청이 들어옴!");
+//        System.out.println("이메일 인증 이메일 : " + email);
+//        return email;
+//    }
 
-
-    @GetMapping("/")
-    public String mainPage(Model model) {
-        return String.format("Main_Page");
-    }
 
 }
