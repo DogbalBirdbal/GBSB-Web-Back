@@ -1,24 +1,16 @@
 package com.dogbalbirdbal.controller;
 
-
-import com.fasterxml.jackson.core.JsonParser;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.sql.*;
-import java.util.HashMap;
-import java.util.Properties;
-import java.util.Scanner;
-
+import com.dogbalbirdbal.database.vo.UserInfo;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.web.bind.annotation.*;
+
+import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+
 
 @RestController
 public class MainController {
@@ -27,31 +19,30 @@ public class MainController {
     String user = "postgres"; //
     String password1 = null; // have to set pwd
     static int count = 0; // variable for choice path
-    
+
     @PostMapping("api/login/")
-    public String login(@RequestBody UserInfo userInfo)
+    public HashMap<String, String> login(@RequestBody UserInfo userInfo)
     {
+        System.out.println(userInfo.toString());
         HashMap<String, String> stringStringHashMap = new HashMap<>();
         stringStringHashMap.put("Result", "fail");
-
+        boolean existData = false;
         try{
             Connection connect = DriverManager.getConnection(url, user, password1);
             String sql = "select uid, name\n" +
-                    "from MyUser\n" +                   // table 선택
-                    "where uid = ? and password = ?";   // 조건문 uid랑 password 입력받은 값이 일치하는지
-            PreparedStatement p = connect.prepareStatement(sql); // 질의문을 작성할 것을 만든다.
+                    "from myuser\n" +                            // table 선택
+                    "where uid = ? and password = ?";            // 조건문 uid랑 password 입력받은 값이 일치하는지
+            PreparedStatement p = connect.prepareStatement(sql); // 질의문을 작성할 것을 만든다.2
             p.setString(1, userInfo.getId());       // 이게 첫번째 물음표로 이동한다.
             p.setString(2, userInfo.getPassword()); // 이게 두번째 물음표로 이동한다.
 
-            ResultSet resultSet = p.executeQuery();             // 질의문을 실행한다.
-
-            boolean existData = false;
-
-            while ( resultSet.next() ) {
-                stringStringHashMap.put("id", resultSet.getString(1));
-                stringStringHashMap.put("name", resultSet.getString(2));
-                existData = true;
-            }
+            ResultSet resultSet = p.executeQuery();
+                while (resultSet.next()) {
+                    existData = true;
+                }
+                if (existData) {
+                    stringStringHashMap.put("Result", "success");
+                }
 
             if ( existData ) {
                 stringStringHashMap.put("Result", "Success");
@@ -59,9 +50,9 @@ public class MainController {
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
-        return "id : " + userInfo.getId() + ", password " + userInfo.getPassword();
+        //return "id : " + userInfo.getId() + ", password " + userInfo.getPassword();
+        return stringStringHashMap;
     }
-
 
     @PostMapping("api/signup/")
     public String signup(@RequestBody UserInfo userInfo){
@@ -89,7 +80,7 @@ public class MainController {
 
     @GetMapping("/api/crawlingfood/{location}")
     public String crawlingController(@PathVariable("location") String location) {
-        ArrayList<CrawlingData> foods = new ArrayList<>();
+        ArrayList<DataSet> foods = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
         String fullURL = "https://www.siksinhot.com/search?keywords=" + location;
@@ -106,7 +97,7 @@ public class MainController {
             }
 
             for (int a = 0; a < 14; a++) {
-                CrawlingData food = new CrawlingData(StringName.get(a), PicURL.get(a));
+                DataSet food = new DataSet(StringName.get(a), PicURL.get(a));
                 foods.add(food);
             }
 
@@ -127,7 +118,7 @@ public class MainController {
     @GetMapping("/api/crawlinghotel/{data}")
     public String crawlingController2(@PathVariable("data") String data) {
         //장소_2022-12-09_2022-12-10 방식으로 data 작성
-        ArrayList<CrawlingData> Hotels = new ArrayList<>();
+        ArrayList<DataSet> Hotels = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
         ArrayList<String> latitudes = new ArrayList<>();
@@ -163,15 +154,15 @@ public class MainController {
             }
 
             for (int a = 0; a < 10; a++) {
-                CrawlingData hotel = new CrawlingHotel(StringName.get(a), PicURL.get(a), latitudes.get(a), longitudes.get(a));
+                DataSet hotel = new HotelSet(StringName.get(a), PicURL.get(a), latitudes.get(a), longitudes.get(a));
                 Hotels.add(hotel);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        //System.out.println(Hotels.toString());
-        //System.out.println(Hotels.get(count++ % Hotels.size()).toString());
-        return Hotels.get(count++ % Hotels.size()).toString();
+        String result = Hotels.get(count++ % Hotels.size()).toString();
+        //System.out.println(result);
+        return result;
     }
 
     @GetMapping("api/choicepath/{destination}")
@@ -183,23 +174,31 @@ public class MainController {
         String[] urlSplit = destination.split(" ");
         if(urlSplit.length != 2) return "error";
 
-        ArrayList<String>[][] FoodLocation = new ArrayList[3][];
+        ArrayList<DataSet>[][] FoodLocation = new ArrayList[3][];
         //  FoodLocation[n][0] = 힐링, FoodLocation[n][1] = 식도락, FoodLocation[n][2] = 예술
         FoodLocation[0] = new ArrayList[3]; // 부산
-        FoodLocation[0][0] = new ArrayList<>(Arrays.asList("감천문화마을", "씨라이프부산아쿠아리움", "송도해상케이블카", "동백섬", "범어사", "이기대수변공원"));
-        FoodLocation[0][1] = new ArrayList<>(Arrays.asList("자갈치시장", "부전시장", "부평깡통시장", "부산밀락회센터", "부산구포시장", "부사영도포장마차거리"));
-        FoodLocation[0][2] = new ArrayList<>(Arrays.asList("부산뮤지엄원", "부산영화체험박물관", "부산커피박물관", "광복로문화패션거리", "트릭아이뮤지엄부산", "부산영화의전당"));
+        FoodLocation[0][0] = new ArrayList<>(); // 부산 힐링
+        FoodLocation[0][0].add(new DataSet("감천문화마을", "https://a.cdn-hotels.com/gdcs/production132/d545/0870f01b-96ec-4854-98b6-72dfc747fa92.jpg?impolicy=fcrop&w=1600&h=1066&q=medium"));
+        FoodLocation[0][0].add(new DataSet("씨라이프부산아쿠아리움", "https://www.visitsealife.com/busan/media/pfml3jrp/seaatnight.jpg"));
+        FoodLocation[0][0].add(new DataSet("송도해상케이블카", "https://blog.kakaocdn.net/dn/bdlVIx/btq49awBY6d/nakSwgXXAIzXLhUnNHTL2k/img.jpg"));
+
+        //FoodLocation[0][0] = new ArrayList<>(Arrays.asList("감천문화마을", "씨라이프부산아쿠아리움", "송도해상케이블카", "동백섬", "범어사", "이기대수변공원"));
+        //FoodLocation[0][1] = new ArrayList<>(Arrays.asList("자갈치시장", "부전시장", "부평깡통시장", "부산밀락회센터", "부산구포시장", "부사영도포장마차거리"));
+        //FoodLocation[0][2] = new ArrayList<>(Arrays.asList("부산뮤지엄원", "부산영화체험박물관", "부산커피박물관", "광복로문화패션거리", "트릭아이뮤지엄부산", "부산영화의전당"));
 
         if(urlSplit[0].equals("부산")){
             switch (urlSplit[1]) {
                 case "힐링":
-                    result = FoodLocation[0][0].get(count++ % 6);
+                    result += "[";
+                    result += FoodLocation[0][0].get(count++ % 6).toString() +",";
+                    result += FoodLocation[0][0].get(count++ % 6).toString() +",";
+                    result += FoodLocation[0][0].get(count++ % 6).toString() + "]";
                     break;
                 case "식도락":
-                    result = FoodLocation[0][1].get(count++ % 6);
+                    result = FoodLocation[0][1].get(count++ % 6).toString();
                     break;
                 case "예술":
-                    result = FoodLocation[0][2].get(count++ % 6);
+                    result = FoodLocation[0][2].get(count++ % 6).toString();
                     break;
             }
         } else if(urlSplit[0].equals("서울")){
@@ -217,29 +216,29 @@ public class MainController {
 
 }
 
-class CrawlingData {
+class DataSet {
     private final String name;
     private final String pic_url;
 
-    CrawlingData(String name, String pic_url) {
+    DataSet(String name, String pic_url) {
         this.name = name;
         this.pic_url = pic_url;
     }
     public String toString() {
-        return "NAME : " + this.name + ", URL : " + this.pic_url;
+        return "{\"name\":\"" + name + "\", \"pic_url\":\"" + pic_url + "\"}";
     }
 }
 
-class CrawlingHotel extends CrawlingData {
+class HotelSet extends DataSet {
     private final String latitudes;
     private final String longitudes;
 
-    CrawlingHotel(String name, String pic_url, String latitudes, String longitudes) {
+    HotelSet(String name, String pic_url, String latitudes, String longitudes) {
         super(name, pic_url);
         this.latitudes = latitudes;
         this.longitudes = longitudes;
     }
     public String toString() {
-        return super.toString() + ", LATITUDES : " + this.latitudes + ", LONGITUDES : " + this.longitudes;
+        return super.toString(); // + "\"latitudes\":\"" + latitudes + "\", \"longitudes\":\"" + longitudes + "\"}";
     }
 }
