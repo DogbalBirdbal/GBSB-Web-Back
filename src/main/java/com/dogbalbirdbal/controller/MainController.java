@@ -1,8 +1,10 @@
 package com.dogbalbirdbal.controller;
 
-
+import org.springframework.context.annotation.Bean;
 import com.dogbalbirdbal.database.vo.PlaceInfo;
 import com.dogbalbirdbal.database.vo.UserInfo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,21 +44,16 @@ public class MainController {
                 stringStringLinkedHashMap.put("email", resultSet1.getString(3));
             }
 
-            String sql2 = "select latitude, longitude, address, image, placename\n" +
-                    "from travelrecord\n" +
+            String sql2 = "select route\n" +
+                    "from wishlist\n" +
                     "where uid = ? " +
                     "order by id";
             PreparedStatement p2 = connect.prepareStatement(sql2);
             p2.setString(1, id);
             ResultSet resultSet2 = p2.executeQuery();
             while ( resultSet2.next() ) {
-                stringStringLinkedHashMap.put("LATITUDE" + count, resultSet2.getString(1));
-                stringStringLinkedHashMap.put("LONGITUDE" + count, resultSet2.getString(2));
-                stringStringLinkedHashMap.put("ADDRESS" + count, resultSet2.getString(3));
-                stringStringLinkedHashMap.put("IMAGE" + count, resultSet2.getString(4));
-                stringStringLinkedHashMap.put("PLACENAME" + count, resultSet2.getString(5));
+                stringStringLinkedHashMap.put("route" + count, resultSet2.getString(1));
                 count++;
-
             }
 
         } catch (SQLException ex) {
@@ -65,30 +62,23 @@ public class MainController {
         return stringStringLinkedHashMap;
     }
 
-    @PostMapping("api/routesender/")
+    @PostMapping("api/myinfo/wishlist/")
     public String routesender(@RequestBody PlaceInfo placeInfo){
 
         System.out.println("test");
         try{
             Connection connect = null;
             connect = DriverManager.getConnection(url, user, password1);
-            String sql = "insert into travelrecord(uid, latitude, longitude, address," +
-                    "image, placename) values(?, ?, ?, ?, ?, ?)";
+            String sql = "insert into wishlist(uid, route) values(?, ?)";
             PreparedStatement p = connect.prepareStatement(sql);
             p.setString(1, placeInfo.getId());
-            p.setString(2, placeInfo.getLatitude());
-            p.setString(3, placeInfo.getLongitude());
-            p.setString(4, placeInfo.getAddress());
-            p.setString(5, placeInfo.getImage());
-            p.setString(6, placeInfo.getPlacename());
+            p.setString(2, placeInfo.getRoute());
             p.executeUpdate();
 
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
-        return "id : " + placeInfo.getId() + ", latitude : " + placeInfo.getLatitude()
-                + ", longitude : " + placeInfo.getLongitude() + ", address " + placeInfo.getAddress()
-                + ", image " + placeInfo.getImage() + ", placename " + placeInfo.getPlacename();
+        return "id : " + placeInfo.getId() + ", route " + placeInfo.getRoute();
     }
 
 
@@ -113,7 +103,6 @@ public class MainController {
             boolean existData = false;
 
             while ( resultSet.next() ) {
-                count++;
                 existData = true;
             }
 
@@ -126,6 +115,8 @@ public class MainController {
         }
         return stringStringHashMap;
     }
+
+
 
 
     @PostMapping("api/signup/")
@@ -154,7 +145,7 @@ public class MainController {
 
     //이메일 인증
 //    @GetMapping("/mailCheck")
-//    @ResponseBody
+//    @ResponseBody`
 //    public String mailCheck(String email) {
 //        System.out.println("이메일 인증 요청이 들어옴!");
 //        System.out.println("이메일 인증 이메일 : " + email);
