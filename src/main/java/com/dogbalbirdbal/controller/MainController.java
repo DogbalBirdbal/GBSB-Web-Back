@@ -21,8 +21,8 @@ public class MainController {
 
 
     String url = "jdbc:postgresql://127.0.0.1:5432/GBSB-back";
-    String user = ""; //
-    String password1 = ""; //
+    String user = "";
+    String password1 = "";
 
     @GetMapping("api/myinfo/{id}/")
     public HashMap<String, String> myInfoController(@PathVariable String id) {
@@ -44,9 +44,7 @@ public class MainController {
                 stringStringLinkedHashMap.put("email", resultSet1.getString(3));
             }
 
-            String sql2 = "select route\n" +
-                    "from wishlist\n" +
-                    "where uid = ? " +
+            String sql2 = "select array_to_string(array_agg(route),',') from wishlist" +
                     "order by id";
             PreparedStatement p2 = connect.prepareStatement(sql2);
             p2.setString(1, id);
