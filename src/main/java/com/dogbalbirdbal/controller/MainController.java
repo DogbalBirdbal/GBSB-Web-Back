@@ -19,8 +19,8 @@ public class MainController {
 
 
     String url = "jdbc:postgresql://127.0.0.1:5432/GBSB-back";
-    String user = "kimjuyoung"; //
-    String password1 = "rhdwn1004!"; //
+    String user = ""; //
+    String password1 = ""; //
 
     @GetMapping("api/myinfo/{id}/")
     public HashMap<String, String> myInfoController(@PathVariable String id) {
