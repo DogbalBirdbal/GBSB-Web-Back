@@ -1,10 +1,17 @@
 package com.dogbalbirdbal.controller;
 
+import com.dogbalbirdbal.database.vo.PlaceInfo;
 import com.dogbalbirdbal.database.vo.UserInfo;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.*;
@@ -18,7 +25,7 @@ public class MainController {
 
     String url = "jdbc:postgresql://localhost:5432/GBSB_JUN";
     String user = "postgres"; //
-    String password1 = null; // have to set pwd
+    String password1 = "sangjun0206"; // have to set pwd
     static int count = 0; // variable for choice path
 
     @PostMapping("api/login/")
@@ -37,12 +44,12 @@ public class MainController {
             p.setString(2, userInfo.getPassword()); // 이게 두번째 물음표로 이동한다.
 
             ResultSet resultSet = p.executeQuery();
-                while (resultSet.next()) {
-                    existData = true;
-                }
-                if (existData) {
-                    stringStringHashMap.put("Result", "success");
-                }
+            while (resultSet.next()) {
+                existData = true;
+            }
+            if (existData) {
+                stringStringHashMap.put("Result", "success");
+            }
 
             if ( existData ) {
                 stringStringHashMap.put("Result", "Success");
@@ -77,11 +84,10 @@ public class MainController {
         return "Duplicate"; // 이 return value를 front에서 받았을 때, 다른 메세지를 출력할 수 있도록 진행해야함. ex) 이미 사용중인 아이디입니다.
     }
 
-    @GetMapping("api/myinfo/{id}/")
+    @GetMapping("api/myinfo/{id}")
     public HashMap<String, String> myInfoController(@PathVariable String id) {
         LinkedHashMap<String, String> stringStringLinkedHashMap = new LinkedHashMap<>();
-        int count = 1;
-
+        System.out.println("myinfo test");
         try{
             Connection connect = null;
             connect = DriverManager.getConnection(url, user, password1);
@@ -92,23 +98,50 @@ public class MainController {
             p1.setString(1, id);
             ResultSet resultSet1 = p1.executeQuery();
             while ( resultSet1.next() ) {
+                System.out.println(resultSet1.getString(1));
                 stringStringLinkedHashMap.put("id", resultSet1.getString(1));
                 stringStringLinkedHashMap.put("name", resultSet1.getString(2));
                 stringStringLinkedHashMap.put("email", resultSet1.getString(3));
             }
 
-            String sql2 = "select address, image, placename\n" +
-                    "from travelrecord\n" +
-                    "where uid = ? " +
-                    "order by id";
+
+            String sql2 = "select string_to_array(route, ',') from wishlist";
+
+            System.out.println(sql2);
             PreparedStatement p2 = connect.prepareStatement(sql2);
-            p2.setString(1, id);
             ResultSet resultSet2 = p2.executeQuery();
             while ( resultSet2.next() ) {
-                stringStringLinkedHashMap.put("ADDRESS" + count, resultSet2.getString(1));
-                stringStringLinkedHashMap.put("IMAGE" + count, resultSet2.getString(2));
-                stringStringLinkedHashMap.put("PLACENAME" + count, resultSet2.getString(3));
-                count++;
+                stringStringLinkedHashMap.put("route", resultSet2.getString(1));
+            }
+
+            try {
+                JSONParser jsonParser = new JSONParser();
+                //JSON데이터를 넣어 JSON Object 로 만들어 준다.
+                String jsonInfo = resultSet2.getString(1);
+                System.out.println(jsonInfo);
+                JSONObject jsonObject = (JSONObject) jsonParser.parse(jsonInfo);
+
+                //books의 배열을 추출
+                JSONArray bookInfoArray = (JSONArray) jsonObject.get("route");
+
+                System.out.println("* route *");
+
+                for (int i = 0; i < bookInfoArray.size(); i++) {
+
+                    System.out.println("=route" + i + " ===========================================");
+
+                    //배열 안에 있는것도 JSON형식 이기 때문에 JSON Object 로 추출
+                    JSONObject bookObject = (JSONObject) bookInfoArray.get(i);
+
+                    //JSON name으로 추출
+                    System.out.println("bookInfo: name==>" + bookObject.get("name"));
+                    System.out.println("bookInfo: url==>" + bookObject.get("pic_url"));
+                    System.out.println("bookInfo: info==>" + bookObject.get("info"));
+
+
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
         } catch (SQLException ex) {
@@ -250,9 +283,9 @@ public class MainController {
             switch (urlSplit[1]) {
                 case "힐링":
                     result += "[";
-                    result += FoodLocation[0][0].get(0).toString() +",";
-                    result += FoodLocation[0][0].get(1).toString() +",";
-                    result += FoodLocation[0][0].get(2).toString() + "]";
+                    result += FoodLocation[0][0].get(count++ %6).toString() +",";
+                    result += FoodLocation[0][0].get(count++ %6).toString() +",";
+                    result += FoodLocation[0][0].get(count++ %6).toString() + "]";
                     break;
                 case "식도락":
                     result = FoodLocation[0][1].get(count % 6).toString();
@@ -274,30 +307,26 @@ public class MainController {
         return result;
     }
 
-    @PostMapping("api/routesender/")
-    public String routesender(@RequestBody String placeInfo) {
-        System.out.println(placeInfo);
-        System.out.println("test");
-//        try{
-//            Connection connect = null;
-//            connect = DriverManager.getConnection(url, user, password1);
-//            String sql = "insert into travelrecord(uid, address," +
-//                    "image, placename) values(?, ?, ?, ?)";
-//            PreparedStatement p = connect.prepareStatement(sql);
-//            p.setString(1, placeInfo.getId());
-//            p.setString(2, placeInfo.getAddress());
-//            p.setString(3, placeInfo.getImage());
-//            p.setString(4, placeInfo.getPlacename());
-//            p.executeUpdate();
-//
-//        } catch (SQLException ex) {
-//            ex.printStackTrace();
-//        }
-//        return "id : " + placeInfo.getId() +  ", address " + placeInfo.getAddress()
-//                + ", image " + placeInfo.getImage() + ", placename " + placeInfo.getPlacename();
-//    }
-        return null;
+    @PostMapping("api/myinfo/wishlist/")
+    public String routesender(@RequestBody PlaceInfo placeInfo){
+
+        System.out.println("test123");
+        System.out.println(placeInfo.toString());
+        try{
+            Connection connect = null;
+            connect = DriverManager.getConnection(url, user, password1);
+            String sql = "insert into wishlist(uid, route) values(?, ?)";
+            PreparedStatement p = connect.prepareStatement(sql);
+            p.setString(1, placeInfo.getId());
+            p.setString(2, placeInfo.getRoute());
+            p.executeUpdate();
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        return "id : " + placeInfo.getId() + ", route " + placeInfo.getRoute();
     }
+
 }
 
 class DataSet {
