@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 
 @RestController
@@ -23,7 +24,6 @@ public class MainController {
     @PostMapping("api/login/")
     public HashMap<String, String> login(@RequestBody UserInfo userInfo)
     {
-        System.out.println(userInfo.toString());
         HashMap<String, String> stringStringHashMap = new HashMap<>();
         stringStringHashMap.put("Result", "fail");
         boolean existData = false;
@@ -74,19 +74,60 @@ public class MainController {
             ex.printStackTrace();
             System.out.println("ID 중복");
         }
-        return null; // 이 return value를 front에서 받았을 때, 다른 메세지를 출력할 수 있도록 진행해야함. ex) 이미 사용중인 아이디입니다.
+        return "Duplicate"; // 이 return value를 front에서 받았을 때, 다른 메세지를 출력할 수 있도록 진행해야함. ex) 이미 사용중인 아이디입니다.
     }
 
+    @GetMapping("api/myinfo/{id}/")
+    public HashMap<String, String> myInfoController(@PathVariable String id) {
+        LinkedHashMap<String, String> stringStringLinkedHashMap = new LinkedHashMap<>();
+        int count = 1;
+
+        try{
+            Connection connect = null;
+            connect = DriverManager.getConnection(url, user, password1);
+            String sql1 = "select uid, name, email\n" +
+                    "from MyUser\n" +
+                    "where uid = ? ";
+            PreparedStatement p1 = connect.prepareStatement(sql1);
+            p1.setString(1, id);
+            ResultSet resultSet1 = p1.executeQuery();
+            while ( resultSet1.next() ) {
+                stringStringLinkedHashMap.put("id", resultSet1.getString(1));
+                stringStringLinkedHashMap.put("name", resultSet1.getString(2));
+                stringStringLinkedHashMap.put("email", resultSet1.getString(3));
+            }
+
+            String sql2 = "select address, image, placename\n" +
+                    "from travelrecord\n" +
+                    "where uid = ? " +
+                    "order by id";
+            PreparedStatement p2 = connect.prepareStatement(sql2);
+            p2.setString(1, id);
+            ResultSet resultSet2 = p2.executeQuery();
+            while ( resultSet2.next() ) {
+                stringStringLinkedHashMap.put("ADDRESS" + count, resultSet2.getString(1));
+                stringStringLinkedHashMap.put("IMAGE" + count, resultSet2.getString(2));
+                stringStringLinkedHashMap.put("PLACENAME" + count, resultSet2.getString(3));
+                count++;
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        return stringStringLinkedHashMap;
+    }
 
     @GetMapping("/api/crawlingfood/{location}")
     public String crawlingController(@PathVariable("location") String location) {
-        ArrayList<DataSet> foods = new ArrayList<>();
+        ArrayList<DataSet_URL> foods = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
+        ArrayList<String> Info = new ArrayList<>();
         String fullURL = "https://www.mangoplate.com/search/" + location;
         try {
             Document doc = Jsoup.connect(fullURL).get();
             Elements contents = doc.select("div[class=thumb] img");
+            Elements infos = doc.select("a[class=only-desktop_not]");
 
             for(Element t : contents){
                 String[] temp = t.attr("alt").split(" ");
@@ -96,10 +137,17 @@ public class MainController {
                 int parsingindex = temp2.indexOf("?");
                 PicURL.add(temp2.substring(0, parsingindex));
             }
+            for(Element k : infos){
+                String temp = k.attr("href");
+                System.out.println(temp);
+                Info.add("https://www.mangoplate.com/"+ temp);
+            }
 
             for (int a = 0; a < 14; a++) {
-                DataSet food = new DataSet(StringName.get(a), PicURL.get(a));
-                foods.add(food);
+                if(!(PicURL.get(a).equals("/"))) {
+                    DataSet_URL food = new DataSet_URL(StringName.get(a), PicURL.get(a),Info.get(a));
+                    foods.add(food);
+                }
             }
 
         } catch (Exception e) {
@@ -107,24 +155,27 @@ public class MainController {
         }
         //System.out.println(foods.toString());
         //System.out.println(foods.get(count++ % foods.size()));
-        String result = "";
+        String result = "[";
         for(int a=0; a<3; a++){
-            int random = (int) (Math.random() * 14);
+            int random = (int) (Math.random() * foods.size());
             if(result.contains(foods.get(random).toString())) a--;
-            else result += foods.get(random).toString() + " ";
+            else {
+                result += foods.get(random).toString();
+                if(a<2) result += ",";
+            }
         }
+        result += "]";
         return result;
     }
 
     @GetMapping("/api/crawlinghotel/{data}")
     public String crawlingController2(@PathVariable("data") String data) {
         //장소_2022-12-09_2022-12-10 방식으로 data 작성
-       
-        ArrayList<DataSet> Hotels = new ArrayList<>();
+
+        ArrayList<DataSet_URL> Hotels = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
-        ArrayList<String> latitudes = new ArrayList<>();
-        ArrayList<String> longitudes = new ArrayList<>();
+        ArrayList<String> Info = new ArrayList<>();
         String[] urlSplit = data.split("_");
 
         String fullURL = "https://www.goodchoice.kr/product/result?sel_date=" + urlSplit[1] + "&sel_date2=" + urlSplit[2] + "&keyword=" + urlSplit[0];
@@ -132,7 +183,7 @@ public class MainController {
             Document doc = Jsoup.connect(fullURL).timeout(0).get();
             Elements text_contents = doc.select("div.name strong");
             Elements image_contents = doc.select("p[class=pic] img");
-            Elements location_contents = doc.select("div[id=poduct_list_area] ul a");
+            Elements info_contents = doc.select("div[id=poduct_list_area] ul a");
 
             for (Element t : text_contents) {
                 String temp = t.text();
@@ -150,13 +201,12 @@ public class MainController {
                 PicURL.add("https:" + i.attr("data-original"));
             }
 
-            for (Element k : location_contents) {
-                latitudes.add(k.attr("data-alat"));
-                longitudes.add(k.attr("data-alng"));
+            for (Element k : info_contents) {
+                Info.add(k.attr("href"));
             }
 
             for (int a = 0; a < 10; a++) {
-                DataSet hotel = new HotelSet(StringName.get(a), PicURL.get(a), latitudes.get(a), longitudes.get(a));
+                DataSet_URL hotel = new DataSet_URL(StringName.get(a), PicURL.get(a), Info.get(a));
                 Hotels.add(hotel);
             }
         } catch (Exception e) {
@@ -176,13 +226,21 @@ public class MainController {
         String[] urlSplit = destination.split(" ");
         if(urlSplit.length != 2) return "error";
 
-        ArrayList<DataSet>[][] FoodLocation = new ArrayList[3][];
+        ArrayList<DataSet_URL>[][] FoodLocation = new ArrayList[3][];
         //  FoodLocation[n][0] = 힐링, FoodLocation[n][1] = 식도락, FoodLocation[n][2] = 예술
-        FoodLocation[0] = new ArrayList[3]; // 부산
+        FoodLocation[0] = new ArrayList[6]; // 부산
         FoodLocation[0][0] = new ArrayList<>(); // 부산 힐링
-        FoodLocation[0][0].add(new DataSet("감천문화마을", "https://a.cdn-hotels.com/gdcs/production132/d545/0870f01b-96ec-4854-98b6-72dfc747fa92.jpg?impolicy=fcrop&w=1600&h=1066&q=medium"));
-        FoodLocation[0][0].add(new DataSet("씨라이프부산아쿠아리움", "https://www.visitsealife.com/busan/media/pfml3jrp/seaatnight.jpg"));
-        FoodLocation[0][0].add(new DataSet("송도해상케이블카", "https://blog.kakaocdn.net/dn/bdlVIx/btq49awBY6d/nakSwgXXAIzXLhUnNHTL2k/img.jpg"));
+        FoodLocation[0][0].add(new DataSet_URL("감천문화마을", "https://a.cdn-hotels.com/gdcs/production132/d545/0870f01b-96ec-4854-98b6-72dfc747fa92.jpg?impolicy=fcrop&w=1600&h=1066&q=medium", "https://map.naver.com/v5/entry/place/21884707?c=14360910.6217881,4177294.2364293,15,0,0,0,dh"));
+        FoodLocation[0][0].add(new DataSet_URL("동백섬", "https://media.triple.guide/triple-cms/c_limit,f_auto,h_1024,w_1024/7d64cf8e-4adc-4b6c-b53d-e01ea70d55b9.jpeg","https://map.naver.com/v5/search/%EB%8F%99%EB%B0%B1%EC%84%AC?c=14376689.6809337,4184817.9801856,15,0,0,0,dh"));
+        FoodLocation[0][0].add(new DataSet_URL("범어사", "https://www.visitbusan.net/uploadImgs/files/cntnts/20191230190106794_oen","https://map.naver.com/v5/search/%EB%B2%94%EC%96%B4%EC%82%AC?c=14367824.9804448,4202515.9354916,18.01,0,0,0,dh"));
+        FoodLocation[0][0].add(new DataSet_URL("태종대", "https://www.visitbusan.net/uploadImgs/files/cntnts/20221215173025725_oen", "https://map.naver.com/v5/search/%ED%83%9C%EC%A2%85%EB%8C%80?c=14369925.0845300,4171371.8330982,15.72,0,0,0,dh"));
+        FoodLocation[0][0].add(new DataSet_URL("송정해수욕장", "https://a.cdn-hotels.com/gdcs/production81/d1958/660649a2-7183-4376-ba6d-fa9c72847c83.jpg","https://map.naver.com/v5/search/%EC%86%A1%EC%A0%95%ED%95%B4%EC%88%98%EC%9A%95%EC%9E%A5?c=14382300.7414847,4188100.6353477,15.91,0,0,0,dh"));
+        FoodLocation[0][0].add(new DataSet_URL("해동용궁사", "https://a.cdn-hotels.com/gdcs/production194/d969/ce3eef2e-2e5d-44c3-b0ee-99c3d3bb991e.jpg?impolicy=fcrop&w=800&h=533&q=medium", "https://map.naver.com/v5/search/%ED%95%B4%EB%8F%99%EC%9A%A9%EA%B6%81%EC%82%AC?c=14385022.9645746,4189538.2833944,17.88,0,0,0,dh"));
+        FoodLocation[1] = new ArrayList[3];
+        FoodLocation[1][2] = new ArrayList<>();
+//        FoodLocation[1][2].add(new DataSet_URL("제주동문시장", "https://t1.daumcdn.net/cfile/tistory/99491D335E4F77741C"));
+//        FoodLocation[1][2].add(new DataSet_URL("수목원길야시장", "https://www.jejutwn.com/data/photos/20220623/art_16545968632197_5fd5d7.jpg"));
+//        FoodLocation[1][2].add(new DataSet_URL("", ""));
 
         //FoodLocation[0][0] = new ArrayList<>(Arrays.asList("감천문화마을", "씨라이프부산아쿠아리움", "송도해상케이블카", "동백섬", "범어사", "이기대수변공원"));
         //FoodLocation[0][1] = new ArrayList<>(Arrays.asList("자갈치시장", "부전시장", "부평깡통시장", "부산밀락회센터", "부산구포시장", "부사영도포장마차거리"));
@@ -192,12 +250,12 @@ public class MainController {
             switch (urlSplit[1]) {
                 case "힐링":
                     result += "[";
-                    result += FoodLocation[0][0].get(count++ % 6).toString() +",";
-                    result += FoodLocation[0][0].get(count++ % 6).toString() +",";
-                    result += FoodLocation[0][0].get(count++ % 6).toString() + "]";
+                    result += FoodLocation[0][0].get(0).toString() +",";
+                    result += FoodLocation[0][0].get(1).toString() +",";
+                    result += FoodLocation[0][0].get(2).toString() + "]";
                     break;
                 case "식도락":
-                    result = FoodLocation[0][1].get(count++ % 6).toString();
+                    result = FoodLocation[0][1].get(count % 6).toString();
                     break;
                 case "예술":
                     result = FoodLocation[0][2].get(count++ % 6).toString();
@@ -216,11 +274,35 @@ public class MainController {
         return result;
     }
 
+    @PostMapping("api/routesender/")
+    public String routesender(@RequestBody String placeInfo) {
+        System.out.println(placeInfo);
+        System.out.println("test");
+//        try{
+//            Connection connect = null;
+//            connect = DriverManager.getConnection(url, user, password1);
+//            String sql = "insert into travelrecord(uid, address," +
+//                    "image, placename) values(?, ?, ?, ?)";
+//            PreparedStatement p = connect.prepareStatement(sql);
+//            p.setString(1, placeInfo.getId());
+//            p.setString(2, placeInfo.getAddress());
+//            p.setString(3, placeInfo.getImage());
+//            p.setString(4, placeInfo.getPlacename());
+//            p.executeUpdate();
+//
+//        } catch (SQLException ex) {
+//            ex.printStackTrace();
+//        }
+//        return "id : " + placeInfo.getId() +  ", address " + placeInfo.getAddress()
+//                + ", image " + placeInfo.getImage() + ", placename " + placeInfo.getPlacename();
+//    }
+        return null;
+    }
 }
 
 class DataSet {
-    private final String name;
-    private final String pic_url;
+    final String name;
+    final String pic_url;
 
     DataSet(String name, String pic_url) {
         this.name = name;
@@ -231,16 +313,14 @@ class DataSet {
     }
 }
 
-class HotelSet extends DataSet {
-    private final String latitudes;
-    private final String longitudes;
+class DataSet_URL extends DataSet {
+    private final String info;
 
-    HotelSet(String name, String pic_url, String latitudes, String longitudes) {
+    DataSet_URL(String name, String pic_url, String info) {
         super(name, pic_url);
-        this.latitudes = latitudes;
-        this.longitudes = longitudes;
+        this.info = info;
     }
     public String toString() {
-        return super.toString(); // + "\"latitudes\":\"" + latitudes + "\", \"longitudes\":\"" + longitudes + "\"}";
+        return "{\"name\":\"" + super.name + "\", \"pic_url\":\"" + super.pic_url + "\", \"info\":\"" + this.info +"\"}";
     }
 }
