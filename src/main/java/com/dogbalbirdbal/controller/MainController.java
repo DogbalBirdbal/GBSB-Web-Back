@@ -1,12 +1,14 @@
 package com.dogbalbirdbal.controller;
 
 
+import com.dogbalbirdbal.database.vo.PlaceInfo;
 import com.dogbalbirdbal.database.vo.UserInfo;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.*;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 //import org.jsoup.Jsoup;
 //import org.jsoup.nodes.Document;
@@ -16,44 +18,77 @@ import java.util.HashMap;
 public class MainController {
 
 
-    String url = "jdbc:postgresql://127.0.0.1:5432/wheretogo";
-    String user = ""; //
-    String password1 = ""; //
+    String url = "jdbc:postgresql://127.0.0.1:5432/GBSB-back";
+    String user = "kimjuyoung"; //
+    String password1 = "rhdwn1004!"; //
 
-    @GetMapping("myinfo/{id}/{password}")
-    public HashMap<String, String> myInfoController(@PathVariable String id,
-                                                    @PathVariable String password,Model model) {
-        HashMap<String, String> stringStringHashMap = new HashMap<>();
-        stringStringHashMap.put("Result", "fail");
+    @GetMapping("api/myinfo/{id}/")
+    public HashMap<String, String> myInfoController(@PathVariable String id) {
+        LinkedHashMap<String, String> stringStringLinkedHashMap = new LinkedHashMap<>();
+        int count = 1;
 
         try{
             Connection connect = null;
             connect = DriverManager.getConnection(url, user, password1);
-            String sql = "select name, uid, email\n" +
+            String sql1 = "select uid, name, email\n" +
                     "from MyUser\n" +
-                    "where uid = ? and password = ?";
-            PreparedStatement p = connect.prepareStatement(sql);
-            p.setString(1, id);
-            p.setString(2, password);
-
-            ResultSet resultSet = p.executeQuery();
-            boolean existData = false;
-
-            while ( resultSet.next() ) {
-                stringStringHashMap.put("name", resultSet.getString(1));
-                stringStringHashMap.put("id", resultSet.getString(2));
-                stringStringHashMap.put("email", resultSet.getString(3));
-                existData = true;
+                    "where uid = ? ";
+            PreparedStatement p1 = connect.prepareStatement(sql1);
+            p1.setString(1, id);
+            ResultSet resultSet1 = p1.executeQuery();
+            while ( resultSet1.next() ) {
+                stringStringLinkedHashMap.put("id", resultSet1.getString(1));
+                stringStringLinkedHashMap.put("name", resultSet1.getString(2));
+                stringStringLinkedHashMap.put("email", resultSet1.getString(3));
             }
 
-            if ( existData ) {
-                stringStringHashMap.put("Result", "Success");
+            String sql2 = "select latitude, longitude, address, image, placename\n" +
+                    "from travelrecord\n" +
+                    "where uid = ? " +
+                    "order by id";
+            PreparedStatement p2 = connect.prepareStatement(sql2);
+            p2.setString(1, id);
+            ResultSet resultSet2 = p2.executeQuery();
+            while ( resultSet2.next() ) {
+                stringStringLinkedHashMap.put("LATITUDE" + count, resultSet2.getString(1));
+                stringStringLinkedHashMap.put("LONGITUDE" + count, resultSet2.getString(2));
+                stringStringLinkedHashMap.put("ADDRESS" + count, resultSet2.getString(3));
+                stringStringLinkedHashMap.put("IMAGE" + count, resultSet2.getString(4));
+                stringStringLinkedHashMap.put("PLACENAME" + count, resultSet2.getString(5));
+                count++;
+
             }
 
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
-        return stringStringHashMap;
+        return stringStringLinkedHashMap;
+    }
+
+    @PostMapping("api/routesender/")
+    public String routesender(@RequestBody PlaceInfo placeInfo){
+
+        System.out.println("test");
+        try{
+            Connection connect = null;
+            connect = DriverManager.getConnection(url, user, password1);
+            String sql = "insert into travelrecord(uid, latitude, longitude, address," +
+                    "image, placename) values(?, ?, ?, ?, ?, ?)";
+            PreparedStatement p = connect.prepareStatement(sql);
+            p.setString(1, placeInfo.getId());
+            p.setString(2, placeInfo.getLatitude());
+            p.setString(3, placeInfo.getLongitude());
+            p.setString(4, placeInfo.getAddress());
+            p.setString(5, placeInfo.getImage());
+            p.setString(6, placeInfo.getPlacename());
+            p.executeUpdate();
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        return "id : " + placeInfo.getId() + ", latitude : " + placeInfo.getLatitude()
+                + ", longitude : " + placeInfo.getLongitude() + ", address " + placeInfo.getAddress()
+                + ", image " + placeInfo.getImage() + ", placename " + placeInfo.getPlacename();
     }
 
     @PostMapping("api/login/")
@@ -116,38 +151,19 @@ public class MainController {
     }
 
 
+    //이메일 인증
+    @GetMapping("/mailCheck")
+    @ResponseBody
+    public String mailCheck(String email) {
+        System.out.println("이메일 인증 요청이 들어옴!");
+        System.out.println("이메일 인증 이메일 : " + email);
+        return email;
+    }
+
+
     @GetMapping("/")
     public String mainPage(Model model) {
         return String.format("Main_Page");
     }
 
-    @GetMapping("/result/")
-    public String resultPage(Model model) {
-        return String.format("result page");
-    }
-
-    //crawling with url using jsoup
-//    @GetMapping("crawling/{url}")
-//        public String crawlingController(@PathVariable String url, Model model) {
-//        String url1 = "https://www.siksinhot.com/search?keywords=" + url;
-//        Document doc = null;
-//        String result = "";
-//        try {
-//            doc = Jsoup.connect(url1).get();
-//            Elements e1 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(1) > figcaption > a > h2");
-//            Elements e2 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(2) > figcaption > a > h2");
-//            Elements e3 = doc.select("#main_search > div > article:nth-child(1) > section > div > div > ul > li:nth-child(3) > figcaption > a > h2");
-//
-//            System.out.println("1등 맛집: "+ e1.text());
-//            System.out.println("2등 맛집: "+ e2.text());
-//            System.out.println("3등 맛집: "+ e3.text());
-//            result += "1등 맛집: " +e1.text() + "2등 맛집: " + e2.text() +"3등 맛집: "+ e3.text();
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//
-//        return String.format(result);
-//    }
 }
