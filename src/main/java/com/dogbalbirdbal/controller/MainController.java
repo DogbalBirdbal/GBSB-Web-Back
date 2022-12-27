@@ -83,17 +83,18 @@ public class MainController {
         ArrayList<DataSet> foods = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
-        String fullURL = "https://www.siksinhot.com/search?keywords=" + location;
+        String fullURL = "https://www.mangoplate.com/search/" + location;
         try {
             Document doc = Jsoup.connect(fullURL).get();
-            Elements contents = doc.select("ul.localFood_list li a img:nth-child(1)");
+            Elements contents = doc.select("div[class=thumb] img");
 
-            int temp3 = 0;
-            for (Element t : contents) {
-                String temp = t.attr("alt");
-                String[] temp2 = temp.split(" ");
-                StringName.add(temp2[0]);
-                PicURL.add(t.attr("src"));
+            for(Element t : contents){
+                String[] temp = t.attr("alt").split(" ");
+                StringName.add(temp[0]);
+
+                String temp2 = t.attr("data-original");
+                int parsingindex = temp2.indexOf("?");
+                PicURL.add(temp2.substring(0, parsingindex));
             }
 
             for (int a = 0; a < 14; a++) {
@@ -118,6 +119,7 @@ public class MainController {
     @GetMapping("/api/crawlinghotel/{data}")
     public String crawlingController2(@PathVariable("data") String data) {
         //장소_2022-12-09_2022-12-10 방식으로 data 작성
+       
         ArrayList<DataSet> Hotels = new ArrayList<>();
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
