@@ -1,8 +1,9 @@
 package com.dogbalbirdbal.controller;
 
-import com.dogbalbirdbal.database.vo.PlaceInfo;
-import com.dogbalbirdbal.database.vo.UserInfo;
+import com.dogbalbirdbal.database.manager.DataBaseServiceManager;
+import com.dogbalbirdbal.database.vo.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -85,12 +86,11 @@ public class MainController {
     }
 
     @GetMapping("api/myinfo/{id}")
-    public HashMap<String, String> myInfoController(@PathVariable String id) {
+    public HashMap<String, String> myInfoControllers(@PathVariable String id) {
         LinkedHashMap<String, String> stringStringLinkedHashMap = new LinkedHashMap<>();
-        System.out.println("myinfo test");
         try{
             Connection connect = null;
-            connect = DriverManager.getConnection(url, user, password1);
+            connect = DataBaseServiceManager.getInstance().getConnection();
             String sql1 = "select uid, name, email\n" +
                     "from MyUser\n" +
                     "where uid = ? ";
@@ -104,7 +104,6 @@ public class MainController {
                 stringStringLinkedHashMap.put("email", resultSet1.getString(3));
             }
 
-
             String sql2 = "select string_to_array(route, ',') from wishlist";
 
             System.out.println(sql2);
@@ -114,35 +113,52 @@ public class MainController {
                 stringStringLinkedHashMap.put("route", resultSet2.getString(1));
             }
 
-            try {
-                JSONParser jsonParser = new JSONParser();
-                //JSON데이터를 넣어 JSON Object 로 만들어 준다.
-                String jsonInfo = resultSet2.getString(1);
-                System.out.println(jsonInfo);
-                JSONObject jsonObject = (JSONObject) jsonParser.parse(jsonInfo);
+            DataBaseServiceManager.getInstance().taskTransaction(connection -> {
+                ResultSet resultSet = connection.prepareStatement("select route from wishlist").executeQuery();
 
-                //books의 배열을 추출
-                JSONArray bookInfoArray = (JSONArray) jsonObject.get("route");
+                WishContainer wishContainer = new WishContainer();
 
-                System.out.println("* route *");
+                while ( resultSet.next() ) {
 
-                for (int i = 0; i < bookInfoArray.size(); i++) {
+                    WishBox wishBox = new WishBox();
 
-                    System.out.println("=route" + i + " ===========================================");
+                    String route = resultSet.getString(1);
 
-                    //배열 안에 있는것도 JSON형식 이기 때문에 JSON Object 로 추출
-                    JSONObject bookObject = (JSONObject) bookInfoArray.get(i);
+                    org.json.simple.parser.JSONParser jsonParser = new org.json.simple.parser.JSONParser();
 
-                    //JSON name으로 추출
-                    System.out.println("bookInfo: name==>" + bookObject.get("name"));
-                    System.out.println("bookInfo: url==>" + bookObject.get("pic_url"));
-                    System.out.println("bookInfo: info==>" + bookObject.get("info"));
+                    try {
 
+                        JSONArray jsonArray = (JSONArray) jsonParser.parse(route);
 
+                        jsonArray.forEach(o -> {
+                            JSONObject jsonObject = (JSONObject) o;
+
+                            String name = jsonObject.get("name").toString();
+                            String picURL = jsonObject.get("pic_url").toString();
+                            String info = jsonObject.get("info").toString();
+                            wishBox.addWishList(new WishList(name,picURL,info));
+
+                        });
+
+                    } catch ( Exception e ) {
+                        e.printStackTrace();
+                    }
+                    wishContainer.addWishBox(wishBox);
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+
+                try {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String jsonData = objectMapper.writeValueAsString(wishContainer);
+
+                    System.out.printf("[JSON MAPPER] : %s\n", jsonData);
+
+                    stringStringLinkedHashMap.put("result", jsonData);
+
+                } catch ( Exception e ) {
+                    e.printStackTrace();
+                }
+            });
+
 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -156,6 +172,7 @@ public class MainController {
         ArrayList<String> StringName = new ArrayList<>();
         ArrayList<String> PicURL = new ArrayList<>();
         ArrayList<String> Info = new ArrayList<>();
+        ArrayList<String> Location = new ArrayList<>();
         String fullURL = "https://www.mangoplate.com/search/" + location;
         try {
             Document doc = Jsoup.connect(fullURL).get();
@@ -163,9 +180,13 @@ public class MainController {
             Elements infos = doc.select("a[class=only-desktop_not]");
 
             for(Element t : contents){
-                String[] temp = t.attr("alt").split(" ");
+                String[] temp = t.attr("alt").split("-");
+                if(temp[0].contains("사진"))
+                    temp[0] = temp[0].replace("사진", "");
+
                 StringName.add(temp[0]);
 
+                Location.add(temp[1]);
                 String temp2 = t.attr("data-original");
                 int parsingindex = temp2.indexOf("?");
                 PicURL.add(temp2.substring(0, parsingindex));
@@ -178,7 +199,7 @@ public class MainController {
 
             for (int a = 0; a < 14; a++) {
                 if(!(PicURL.get(a).equals("/"))) {
-                    DataSet_URL food = new DataSet_URL(StringName.get(a), PicURL.get(a),Info.get(a));
+                    DataSet_URL food = new DataSet_URL(StringName.get(a), PicURL.get(a),Info.get(a), Location.get(a));
                     foods.add(food);
                 }
             }
@@ -210,13 +231,15 @@ public class MainController {
         ArrayList<String> PicURL = new ArrayList<>();
         ArrayList<String> Info = new ArrayList<>();
         String[] urlSplit = data.split("_");
+        ArrayList<String> Location = new ArrayList<>();
 
         String fullURL = "https://www.goodchoice.kr/product/result?sel_date=" + urlSplit[1] + "&sel_date2=" + urlSplit[2] + "&keyword=" + urlSplit[0];
         try {
             Document doc = Jsoup.connect(fullURL).timeout(0).get();
-            Elements text_contents = doc.select("div.name strong");
+            Elements text_contents = doc.select("div[class=name] strong");
             Elements image_contents = doc.select("p[class=pic] img");
             Elements info_contents = doc.select("div[id=poduct_list_area] ul a");
+            Elements Location_contents = doc.select("div[id=poduct_list_area] ul li a div div[class=name] p:nth-child(3)");
 
             for (Element t : text_contents) {
                 String temp = t.text();
@@ -238,15 +261,18 @@ public class MainController {
                 Info.add(k.attr("href"));
             }
 
+            for( Element l : Location_contents){
+                Location.add(l.text());
+            }
+
             for (int a = 0; a < 10; a++) {
-                DataSet_URL hotel = new DataSet_URL(StringName.get(a), PicURL.get(a), Info.get(a));
+                DataSet_URL hotel = new DataSet_URL(StringName.get(a), PicURL.get(a), Info.get(a), Location.get(a));
                 Hotels.add(hotel);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         String result = Hotels.get(count++ % Hotels.size()).toString();
-        //System.out.println(result);
         return result;
     }
 
@@ -263,12 +289,18 @@ public class MainController {
         //  FoodLocation[n][0] = 힐링, FoodLocation[n][1] = 식도락, FoodLocation[n][2] = 예술
         FoodLocation[0] = new ArrayList[6]; // 부산
         FoodLocation[0][0] = new ArrayList<>(); // 부산 힐링
-        FoodLocation[0][0].add(new DataSet_URL("감천문화마을", "https://a.cdn-hotels.com/gdcs/production132/d545/0870f01b-96ec-4854-98b6-72dfc747fa92.jpg?impolicy=fcrop&w=1600&h=1066&q=medium", "https://map.naver.com/v5/entry/place/21884707?c=14360910.6217881,4177294.2364293,15,0,0,0,dh"));
-        FoodLocation[0][0].add(new DataSet_URL("동백섬", "https://media.triple.guide/triple-cms/c_limit,f_auto,h_1024,w_1024/7d64cf8e-4adc-4b6c-b53d-e01ea70d55b9.jpeg","https://map.naver.com/v5/search/%EB%8F%99%EB%B0%B1%EC%84%AC?c=14376689.6809337,4184817.9801856,15,0,0,0,dh"));
-        FoodLocation[0][0].add(new DataSet_URL("범어사", "https://www.visitbusan.net/uploadImgs/files/cntnts/20191230190106794_oen","https://map.naver.com/v5/search/%EB%B2%94%EC%96%B4%EC%82%AC?c=14367824.9804448,4202515.9354916,18.01,0,0,0,dh"));
-        FoodLocation[0][0].add(new DataSet_URL("태종대", "https://www.visitbusan.net/uploadImgs/files/cntnts/20221215173025725_oen", "https://map.naver.com/v5/search/%ED%83%9C%EC%A2%85%EB%8C%80?c=14369925.0845300,4171371.8330982,15.72,0,0,0,dh"));
-        FoodLocation[0][0].add(new DataSet_URL("송정해수욕장", "https://a.cdn-hotels.com/gdcs/production81/d1958/660649a2-7183-4376-ba6d-fa9c72847c83.jpg","https://map.naver.com/v5/search/%EC%86%A1%EC%A0%95%ED%95%B4%EC%88%98%EC%9A%95%EC%9E%A5?c=14382300.7414847,4188100.6353477,15.91,0,0,0,dh"));
-        FoodLocation[0][0].add(new DataSet_URL("해동용궁사", "https://a.cdn-hotels.com/gdcs/production194/d969/ce3eef2e-2e5d-44c3-b0ee-99c3d3bb991e.jpg?impolicy=fcrop&w=800&h=533&q=medium", "https://map.naver.com/v5/search/%ED%95%B4%EB%8F%99%EC%9A%A9%EA%B6%81%EC%82%AC?c=14385022.9645746,4189538.2833944,17.88,0,0,0,dh"));
+        FoodLocation[0][0].add(new DataSet_URL("감천문화마을", "https://a.cdn-hotels.com/gdcs/production132/d545/0870f01b-96ec-4854-98b6-72dfc747fa92.jpg?impolicy=fcrop&w=1600&h=1066&q=medium",
+                "https://map.naver.com/v5/entry/place/21884707?c=14360910.6217881,4177294.2364293,15,0,0,0,dh", "부산광역시 사하구 감내1로 200"));
+        FoodLocation[0][0].add(new DataSet_URL("동백섬", "https://media.triple.guide/triple-cms/c_limit,f_auto,h_1024,w_1024/7d64cf8e-4adc-4b6c-b53d-e01ea70d55b9.jpeg",
+                "https://map.naver.com/v5/search/%EB%8F%99%EB%B0%B1%EC%84%AC?c=14376689.6809337,4184817.9801856,15,0,0,0,dh", "부산광역시 해운대구 우1동 783-1"));
+        FoodLocation[0][0].add(new DataSet_URL("범어사", "https://www.visitbusan.net/uploadImgs/files/cntnts/20191230190106794_oen",
+                "https://map.naver.com/v5/search/%EB%B2%94%EC%96%B4%EC%82%AC?c=14367824.9804448,4202515.9354916,18.01,0,0,0,dh", "부산광역시 금정구 범어사로 250"));
+        FoodLocation[0][0].add(new DataSet_URL("태종대", "https://www.visitbusan.net/uploadImgs/files/cntnts/20221215173025725_oen",
+                "https://map.naver.com/v5/search/%ED%83%9C%EC%A2%85%EB%8C%80?c=14369925.0845300,4171371.8330982,15.72,0,0,0,dh", "부산광역시 영도구 전망로 24"));
+        FoodLocation[0][0].add(new DataSet_URL("송정해수욕장", "https://a.cdn-hotels.com/gdcs/production81/d1958/660649a2-7183-4376-ba6d-fa9c72847c83.jpg",
+                "https://map.naver.com/v5/search/%EC%86%A1%EC%A0%95%ED%95%B4%EC%88%98%EC%9A%95%EC%9E%A5?c=14382300.7414847,4188100.6353477,15.91,0,0,0,dh", "부산광역시 해운대구 송정동"));
+        FoodLocation[0][0].add(new DataSet_URL("해동용궁사", "https://a.cdn-hotels.com/gdcs/production194/d969/ce3eef2e-2e5d-44c3-b0ee-99c3d3bb991e.jpg?impolicy=fcrop&w=800&h=533&q=medium",
+                "https://map.naver.com/v5/search/%ED%95%B4%EB%8F%99%EC%9A%A9%EA%B6%81%EC%82%AC?c=14385022.9645746,4189538.2833944,17.88,0,0,0,dh", "부산광역시 기장군 기장읍 시랑리"));
         FoodLocation[1] = new ArrayList[3];
         FoodLocation[1][2] = new ArrayList<>();
 //        FoodLocation[1][2].add(new DataSet_URL("제주동문시장", "https://t1.daumcdn.net/cfile/tistory/99491D335E4F77741C"));
@@ -326,7 +358,6 @@ public class MainController {
         }
         return "id : " + placeInfo.getId() + ", route " + placeInfo.getRoute();
     }
-
 }
 
 class DataSet {
@@ -344,12 +375,15 @@ class DataSet {
 
 class DataSet_URL extends DataSet {
     private final String info;
+    private String address;
 
-    DataSet_URL(String name, String pic_url, String info) {
+    DataSet_URL(String name, String pic_url, String info, String address)
+    {
         super(name, pic_url);
         this.info = info;
+        this.address = address;
     }
     public String toString() {
-        return "{\"name\":\"" + super.name + "\", \"pic_url\":\"" + super.pic_url + "\", \"info\":\"" + this.info +"\"}";
+        return "{\"name\":\"" + super.name + "\", \"pic_url\":\"" + super.pic_url + "\", \"info\":\"" + this.info + "\", \"address\":\"" + this.address + "\"}";
     }
 }
